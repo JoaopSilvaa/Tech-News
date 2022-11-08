@@ -38,7 +38,64 @@ def scrape_next_page_link(html_content):
 
 # Requisito 4
 def scrape_noticia(html_content):
-    """Seu código deve vir aqui"""
+    new = dict()
+    selector = Selector(html_content)
+    suffix = ". "
+    new["url"] = selector.css("head link::attr(href)").getall()[2]
+    title = selector.css(".entry-title::text").get()
+    if title.endswith(suffix):
+        title = title[:-len(suffix)]
+        new["title"] = title
+    else:
+        new["title"] = title
+    new["timestamp"] = selector.css(".meta-date::text").get()
+    new["writer"] = selector.css(".author a::text").get()
+    new["comments_count"] = selector.css(".comment-list li").getall()
+    if not new["comments_count"]:
+        new["comments_count"] = 0
+    else:
+        new["comments_count"] = len(new["comments_count"])
+    summary = selector.css(".entry-content p").get()
+    if "</a>" not in summary and "<strong>" not in summary and (
+            "</em>" not in summary):
+        summary = selector.css(".entry-content p::text").get()
+    if "</a>" in summary:
+        if "</em>" in selector.css(".entry-content p a").get():
+            link = selector.css(".entry-content p a").getall()
+            text = selector.css(".entry-content p a em::text").getall()
+            for i in range(len(text)):
+                summary = summary.replace(
+                    link[i],
+                    text[i])
+        else:
+            link = selector.css(".entry-content p a").getall()
+            text = selector.css(".entry-content p a::text").getall()
+            for i in range(len(text)):
+                summary = summary.replace(
+                    link[i],
+                    text[i])
+    if "</em>" in summary:
+        link = selector.css(".entry-content p em").getall()
+        text = selector.css(".entry-content p em::text").getall()
+        for i in range(len(text)):
+            summary = summary.replace(
+                link[i],
+                text[i])
+    if "<strong>" in summary:
+        summary = summary.replace("<strong>", "")
+        summary = summary.replace("</strong>", "")
+    if "</p>" in summary:
+        summary = summary.replace("<p>", "")
+        summary = summary.replace("</p>", "")
+    print(summary)
+    if "\xa0" in summary:
+        summary = summary.replace(u'\xa0', u'')
+        new["summary"] = summary
+    else:
+        new["summary"] = summary
+    new["tags"] = selector.css(".post-tags ul li a::text").getall()
+    new["category"] = selector.css(".label::text").get()
+    return new
 
 
 # Requisito 5
