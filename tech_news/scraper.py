@@ -37,62 +37,125 @@ def scrape_next_page_link(html_content):
 
 
 # Requisito 4
-def scrape_noticia(html_content):
-    new = dict()
-    selector = Selector(html_content)
-    suffix = ". "
-    new["url"] = selector.css("head link::attr(href)").getall()[2]
+def title_structure(selector):
+    suffix = " "
     title = selector.css(".entry-title::text").get()
     if title.endswith(suffix):
         title = title[:-len(suffix)]
-        new["title"] = title
+        return title
+    if "\xa0" in title:
+        title = title.replace(u'\xa0', u'')
+        return title
     else:
-        new["title"] = title
-    new["timestamp"] = selector.css(".meta-date::text").get()
-    new["writer"] = selector.css(".author a::text").get()
-    new["comments_count"] = selector.css(".comment-list li").getall()
-    if not new["comments_count"]:
-        new["comments_count"] = 0
+        return title
+
+
+def url_structure(selector):
+    url = selector.css("head link::attr(href)").getall()[2]
+    if "amp" in url:
+        url = url[:-len("amp/")]
+        return url
     else:
-        new["comments_count"] = len(new["comments_count"])
-    summary = selector.css(".entry-content p").get()
+        return url
+
+
+def comments_structure(selector):
+    comments = selector.css(".comment-list li").getall()
+    if not comments:
+        return 0
+    else:
+        comments = len(comments)
+        return comments
+
+
+def verify_em(selector, summary):
+    link = selector.css(".entry-content p em").getall()
+    text = selector.css(".entry-content p em::text").getall()
+    for i in range(len(text)):
+        summary = summary.replace(
+            link[i],
+            text[i])
+    return summary
+
+
+def verify_a(selector, summary):
+    links = selector.css(".entry-content p a").getall()
+    text = selector.css(".entry-content p a::text").getall()
+    for i in range(len(text)):
+        summary = summary.replace(
+            links[i],
+            text[i])
+    return summary
+
+
+def verify_a_with_em(selector, summary):
+    links = selector.css(".entry-content p a").getall()
+    texts = selector.css(".entry-content p a em::text").getall()
+    for i in range(len(texts)):
+        for j in range(len(links)):
+            if texts[i] in links[j]:
+                summary = summary.replace(
+                        links[j],
+                        texts[i])
+    return summary
+
+
+def verify_all_conditions(selector, summary):
     if "</a>" not in summary and "<strong>" not in summary and (
-            "</em>" not in summary):
+            "</em>" not in summary and "<br>" not in summary):
         summary = selector.css(".entry-content p::text").get()
-    if "</a>" in summary:
-        if "</em>" in selector.css(".entry-content p a").get():
-            link = selector.css(".entry-content p a").getall()
-            text = selector.css(".entry-content p a em::text").getall()
-            for i in range(len(text)):
-                summary = summary.replace(
-                    link[i],
-                    text[i])
-        else:
-            link = selector.css(".entry-content p a").getall()
-            text = selector.css(".entry-content p a::text").getall()
-            for i in range(len(text)):
-                summary = summary.replace(
-                    link[i],
-                    text[i])
-    if "</em>" in summary:
-        link = selector.css(".entry-content p em").getall()
-        text = selector.css(".entry-content p em::text").getall()
-        for i in range(len(text)):
-            summary = summary.replace(
-                link[i],
-                text[i])
+        return summary
+    else:
+        return summary
+
+
+def verify_strong_p_br(summary):
     if "<strong>" in summary:
         summary = summary.replace("<strong>", "")
         summary = summary.replace("</strong>", "")
     if "</p>" in summary:
         summary = summary.replace("<p>", "")
         summary = summary.replace("</p>", "")
-    print(summary)
+    if "<br>" in summary:
+        summary = summary.replace("<br>", "")
+    return summary
+
+
+def verify_suffix(summary):
+    suffix = " "
     if "\xa0" in summary:
         summary = summary.replace(u'\xa0', u'')
-        new["summary"] = summary
+        return summary
+    if summary.endswith(suffix):
+        summary = summary[:-len(suffix)]
+        return summary
     else:
-        new["summary"] = summary
+        return summary
+
+
+def summary_structure(selector):
+    summary = selector.css(".entry-content p").get()
+    summary = verify_all_conditions(selector, summary)
+    if "</em></a>" in summary:
+        summary = verify_a_with_em(selector, summary)
+    if "</a>" in summary:
+        summary = verify_a(selector, summary)
+    if "</em>" in summary:
+        summary = verify_em(selector, summary)
+    summary = verify_strong_p_br(summary)
+    summary = verify_suffix(summary)
+    return summary
+
+
+def scrape_noticia(html_content):
+    new = dict()
+    selector = Selector(html_content)
+    new["url"] = url_structure(selector)
+    new["title"] = title_structure(selector)
+    new["timestamp"] = selector.css(".meta-date::text").get()
+    new["writer"] = selector.css(".author a::text").get()
+    new["comments_count"] = comments_structure(selector)
+    new["summary"] = summary_structure(selector)
     new["tags"] = selector.css(".post-tags ul li a::text").getall()
     new["category"] = selector.css(".label::text").get()
     return new
