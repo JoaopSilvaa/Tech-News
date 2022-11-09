@@ -1,4 +1,4 @@
-from tech_news.database import get_collection
+from tech_news.database import get_collection, find_news
 
 
 # Requisito 10
@@ -16,6 +16,30 @@ def top_5_news():
         return result
 
 
+def sorted_for_value(x, categories):
+    new_categories = {}
+    for category in sorted(categories, key=categories.get, reverse=True):
+        new_categories[category] = categories[category]
+    return new_categories
+
+
 # Requisito 11
 def top_5_categories():
-    """Seu código deve vir aqui"""
+    news = find_news()
+    categories = {}
+    for new in news:
+        if new["category"] not in categories:
+            categories[new["category"]] = 1
+        else:
+            categories[new["category"]] += 1
+    if len(categories) == 0:
+        return []
+    else:
+        ordened = sorted(
+            categories.items(), key=lambda item: item[0],
+        )
+        ordened.sort(key=lambda item: item[1], reverse=True)
+        categories_sorted = []
+        for item in ordened:
+            categories_sorted.append(item[0])
+        return categories_sorted
