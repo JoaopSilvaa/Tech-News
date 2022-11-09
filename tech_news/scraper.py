@@ -1,4 +1,5 @@
 from parsel import Selector
+from tech_news.database import create_news
 import requests
 import time
 
@@ -51,12 +52,17 @@ def title_structure(selector):
 
 
 def url_structure(selector):
-    url = selector.css("head link::attr(href)").getall()[2]
-    if "amp" in url:
-        url = url[:-len("amp/")]
-        return url
+    urls = selector.css("head link::attr(href)").getall()
+    link = ""
+    for url in urls:
+        if "https://blog.betrybe.com/" in url:
+            link = url
+            break
+    if "amp" in link:
+        link = link[:-len("amp/")]
+        return link
     else:
-        return url
+        return link
 
 
 def comments_structure(selector):
@@ -161,6 +167,43 @@ def scrape_noticia(html_content):
     return new
 
 
+def one_page(html, links, amount):
+    news_in_page = scrape_novidades(html)
+    count = 0
+    while len(links) < amount:
+        links.append(news_in_page[count])
+        count += 1
+
+
+def more_pages(html, links, amount, qtd_news_for_page):
+    times = amount // qtd_news_for_page
+    count = 0
+    while count <= times:
+        count2 = 0
+        news_in_page = scrape_novidades(html)
+        while count2 < qtd_news_for_page:
+            if len(links) == amount:
+                break
+            else:
+                links.append(news_in_page[count2])
+                count2 += 1
+        next_page = scrape_next_page_link(html)
+        if next_page is not None:
+            html = fetch(next_page)
+        count += 1
+
+
 # Requisito 5
 def get_tech_news(amount):
-    """Seu código deve vir aqui"""
+    html = fetch("https://blog.betrybe.com/")
+    links = []
+    qtd_news_for_page = 12
+    if amount <= qtd_news_for_page:
+        one_page(html, links, amount)
+    elif amount > qtd_news_for_page:
+        more_pages(html, links, amount, qtd_news_for_page)
+    news = []
+    for link in links:
+        news.append(scrape_noticia(fetch(link)))
+    create_news(news)
+    return news
